@@ -12,3 +12,6 @@ bin
 
 # Ignore ctags file
 tags
+
+# settings
+.settings
