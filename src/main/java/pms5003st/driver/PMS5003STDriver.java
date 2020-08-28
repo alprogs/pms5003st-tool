@@ -75,6 +75,7 @@ public class PMS5003STDriver implements AutoCloseable {
 		config.put( DATABITS, 8 );
 		config.put( STOPBITS, SerialPort.ONE_STOP_BIT );
 		config.put( PARITYBITS, SerialPort.NO_PARITY );
+		config.put( PORT_STATE, false );
 	}
 
 	public boolean open() {
@@ -94,37 +95,39 @@ public class PMS5003STDriver implements AutoCloseable {
 			serialPort.setNumStopBits((int) config.get( STOPBITS ));
 			serialPort.setParity((int) config.get( PARITYBITS ));
 			serialPort.setComPortTimeouts(
-				SerialPort.LISTENING_EVENT_DATA_WRITTEN, 
+				//SerialPort.LISTENING_EVENT_DATA_WRITTEN, 
+				//SerialPort.LISTENING_EVENT_DATA_RECEIVED, 
+				SerialPort.TIMEOUT_READ_BLOCKING, 
 				(int)config.get( TIMEOUT ), 
 				(int)config.get( TIMEOUT )
 			);
 
-			measurementBytesQueue = new ConcurrentLinkedDeque<>();
-			serialPort.addDataListener(new SerialPortDataListener() {
-				@Override
-				public int getListeningEvents() {
-					return SerialPort.LISTENING_EVENT_DATA_RECEIVED;
-				}
+			//measurementBytesQueue = new ConcurrentLinkedDeque<>();
+			//serialPort.addDataListener(new SerialPortDataListener() {
+			//	@Override
+			//	public int getListeningEvents() {
+			//		return SerialPort.LISTENING_EVENT_DATA_RECEIVED;
+			//	}
 
-				@Override 
-				public void serialEvent(SerialPortEvent event) {
-					try {
-						byte[] bytes = event.getReceivedData();
+			//	@Override 
+			//	public void serialEvent(SerialPortEvent event) {
+			//		try {
+			//			byte[] bytes = event.getReceivedData();
 
-						if (bytes.length == PACKET_SIZE) {
-							measurementBytesQueue.add(bytes);
+			//			if (bytes.length == PACKET_SIZE) {
+			//				measurementBytesQueue.add(bytes);
 
-							PMS5003STMeasurement data 	= genMeasurementResultFromLastQueue();
-							log.info("\n{}", data.toString());
-						} else {
-							log.debug("Bytes received: {}", convertToHexString(bytes));
-						}
+			//				PMS5003STMeasurement data 	= genMeasurementResultFromLastQueue();
+			//				log.info("\n{}", data.toString());
+			//			} else {
+			//				log.debug("Bytes received: {}", convertToHexString(bytes));
+			//			}
 
-					} catch (Exception e) {
-						log.error("Failed to read bytes from event. {}", e.getMessage());
-					}
-				}
-			});
+			//		} catch (Exception e) {
+			//			log.error("Failed to read bytes from event. {}", e.getMessage());
+			//		}
+			//	}
+			//});
 			
 			config.put(PORT_STATE, true);
 
@@ -196,10 +199,12 @@ public class PMS5003STDriver implements AutoCloseable {
 	}
 
 	public boolean setActiveMode() {
+		log.info("Change sensor operating mode to active.");
 		return changeMode( ACTIVE_MODE );
 	}
 
 	public boolean setPassiveMode() {
+		log.info("Change sensor operating mode to passive.");
 		return changeMode( PASSIVE_MODE );
 	}
 
@@ -215,7 +220,7 @@ public class PMS5003STDriver implements AutoCloseable {
 			return false;
 		}
 
-		log.debug("Mode was changed to {}.", mode);
+		log.info("Mode was changed to {}.", mode);
 
 		measurementBytesQueue.clear();
 
@@ -223,6 +228,8 @@ public class PMS5003STDriver implements AutoCloseable {
 	}
 
 	public boolean sendMeasureCmdOnPassive() {
+		log.debug("Trying to send measure command on passive.");
+
 		if (!open()) {
 			log.error("Can't measure, port not open.");
 			return false;
@@ -233,7 +240,6 @@ public class PMS5003STDriver implements AutoCloseable {
 			return false;
 		}
 
-		log.debug("Measuring.");
 		return true;
 	}
 
@@ -248,14 +254,27 @@ public class PMS5003STDriver implements AutoCloseable {
 			return null;
 		}
 		
-		log.debug("Measuring.");
+		log.debug("Measuring...");
+
+		byte[] buffer 	= read( PACKET_SIZE );
+
+		if (buffer.length == PACKET_SIZE) {
+			measurementBytesQueue.add( buffer );
+
+		} else {
+			log.debug("Bytes received: {}", convertToHexString( buffer ));
+		}
 
 		if (measurementBytesQueue.isEmpty()) {
 			log.warn("No measurements available.");
-			return null;
-		}
 
-		return genMeasurementResultFromLastQueue();
+			return null;
+
+		} else {
+			PMS5003STMeasurement data 	= genMeasurementResultFromLastQueue();
+
+			return data;
+		}
 	}
 
 	public PMS5003STMeasurement measure() {
@@ -338,7 +357,6 @@ public class PMS5003STDriver implements AutoCloseable {
 		return true;
 	}
 
-	/*
 	private byte[] read(int size) {
 		byte[] buffer 	= new byte[size];
 
@@ -357,7 +375,6 @@ public class PMS5003STDriver implements AutoCloseable {
 
 		return buffer;
 	}
-	*/
 
 	private String convertToHexString(byte[] bytes) {
 		StringBuilder builder = new StringBuilder(bytes.length * 2);

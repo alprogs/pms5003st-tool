@@ -13,5 +13,6 @@ bin
 # Ignore ctags file
 tags
 
-# settings
+# Ignore automagic generated files
 .settings
+.classpath

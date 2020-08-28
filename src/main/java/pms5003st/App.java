@@ -19,10 +19,17 @@ public class App {
 				log.error("Failed to set passive mode.");
 			}
 
+			int i=0;
 			while(true) {
-				if (!driver.sendMeasureCmdOnPassive()) {
-					log.error("Failed to send measure command on passive.");
+
+				log.info("TICK -- {}", i++);
+
+				PMS5003STMeasurement data 	= driver.measureOnPassive();
+				if (data == null) {
+					log.error("Received data is empty.");
 				}
+
+				log.info( data.toString() );
 
 				Thread.sleep( 10 * 1000 );
 			}
@@ -30,27 +37,6 @@ public class App {
 		} catch (Exception e) {
 			log.error( e.toString() );
 		}
-	
-		/*
-		// connect to PMS5003ST
-		if (!driver.connect()) {
-			log.error("connect failed.");
-		}
-
-		// change mode to passive 
-		if (!driver.changeMode( PMS5003STDriver.PASSIVE_MODE )) {
-			log.error("change mode failed.");
-		}
-
-		// read measurement result
-		PMS5003STMeasurement result 	= driver.measureOnPassive();
-		if (result == null) {
-			log.error("measureOnPassive was failed.");
-		}
-
-		// print measurement result
-		log.info("{}{}", "\n", result.toString());	
-		*/
 	}
 
     public static void main(String[] args) {

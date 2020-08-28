@@ -22,9 +22,9 @@ public class PMS5003STMeasurement {
 	private int pm2_5_count;
 	private int pm5_0_count;
 	private int pm10_0_count;	
-	private int formaldehyde;
-	private int temperature;
-	private int humidity;
+	private float formaldehyde;
+	private float temperature;
+	private float humidity;
 
 	public String toString() {
 		StringBuffer sb 	= new StringBuffer();
@@ -42,9 +42,9 @@ public class PMS5003STMeasurement {
 		sb.append("PM  2.5(COUNT): ").append(pm2_5_count).append("\n");
 		sb.append("PM  5.0(COUNT): ").append(pm5_0_count).append("\n");
 		sb.append("PM 10.0(COUNT): ").append(pm10_0_count).append("\n");
-		sb.append("FORMALDEHYDE  : ").append(formaldehyde).append("\n");
-		sb.append("TEMPERATURE   : ").append(temperature).append("\n");
-		sb.append("HUMIDITY      : ").append(humidity).append("\n");
+		sb.append("FORMALDEHYDE  : ").append(String.format("%.04f", formaldehyde/1000)).append("\n");
+		sb.append("TEMPERATURE   : ").append(temperature/10).append("\n");
+		sb.append("HUMIDITY      : ").append(humidity/10).append("\n");
 		sb.append("===========================================").append("\n");
 
 		return sb.toString();
