@@ -2,7 +2,7 @@ package pms5003st;
 
 import lombok.extern.slf4j.Slf4j;
 import pms5003st.driver.PMS5003STDriver;
-import pms5003st.driver.PMS5003STMeasurementResult;
+import pms5003st.driver.PMS5003STMeasurement;
 
 @Slf4j
 public class App {
@@ -10,7 +10,17 @@ public class App {
 	public void doProcess() {
 		log.info("START");
 
-		PMS5003STDriver driver = new PMS5003STDriver();
+		try (PMS5003STDriver driver = PMS5003STDriver.getInstance("/dev/ttyUSB0")) {
+			driver.open();
+				
+			driver.setPassiveMode();
+
+			while(true) {
+			}
+
+		} catch (Exception e) {
+			log.error( e.toString() );
+		}
 
 		// connect to PMS5003ST
 		if (!driver.connect()) {
@@ -23,13 +33,13 @@ public class App {
 		}
 
 		// read measurement result
-		PMS5003STMeasurementResult result 	= driver.measureOnPassive();
+		PMS5003STMeasurement result 	= driver.measureOnPassive();
 		if (result == null) {
 			log.error("measureOnPassive was failed.");
 		}
 
 		// print measurement result
-
+		log.info("{}{}", "\n", result.toString());	
 	}
 
     public static void main(String[] args) {

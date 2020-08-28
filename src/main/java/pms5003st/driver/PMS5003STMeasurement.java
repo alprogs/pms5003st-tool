@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Data
 @Slf4j
-public class PMS5003STMeasurementResult {
+public class PMS5003STMeasurement {
 	private Instant time;
 
 	private int pm1_0_cf1;

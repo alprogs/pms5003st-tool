@@ -2,26 +2,37 @@ package pms5003st.driver;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-import com.pi4j.io.serial.Baud;
-import com.pi4j.io.serial.DataBits;
-import com.pi4j.io.serial.FlowControl;
-import com.pi4j.io.serial.Parity;
-import com.pi4j.io.serial.Serial;
-import com.pi4j.io.serial.SerialConfig;
-import com.pi4j.io.serial.SerialDataEventListener;
-import com.pi4j.io.serial.SerialFactory;
-import com.pi4j.io.serial.StopBits;
+import com.fazecast.jSerialComm.SerialPort;
+import com.fazecast.jSerialComm.SerialPortDataListener;
+import com.fazecast.jSerialComm.SerialPortEvent;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class PMS5003STDriver {
+public class PMS5003STDriver implements AutoCloseable {
 
-	private static final String MY_SERIAL_DEVICE="/dev/serial0";
-	private Serial serial;
-	private SerialDataEventListener listener;
+	// Constants --------
+	private static final String PORT_NAME 	= "PORT_NAME";	
+
+	private static final String BAUDRATE 	= "BAUDRATE";
+	private static final String DATABITS 	= "DATABITS";
+	private static final String STOPBITS 	= "STOPBITS";
+	private static final String PARITYBITS 	= "PARITYBITS";
+	private static final String TIMEOUT 	= "TIMEOUT";
+
+	private static final String PORT_STATE 	= "PORT_STATE";
+	// ------------------
+
+	private static Properties config 	= new Properties();
+
+	private static final int DEFAULT_TIMEOUT 	= 1000; 	// default read timout(msec)
+	
+	private final SerialPort serialPort;
+
 	private ConcurrentLinkedDeque<byte[]> measurementBytesQueue;
 
 	private static final int PACKET_SIZE 	= 40;
@@ -43,79 +54,115 @@ public class PMS5003STDriver {
 
 	private static final boolean isTraceEnabled 	= true;
 
-	public boolean connect() {
+	public static PMS5003STDriver getInstance(String port) {
+		config.put( PORT_NAME, port );
+		config.put( TIMEOUT, DEFAULT_TIMEOUT );
+
+		return LazyHolder.INSTANCE;
+	}
+
+	public static PMS5003STDriver getInstance(String port, int timeout) {
+		config.put( PORT_NAME, port );
+		config.put( TIMEOUT, timeout );
+		
+		return LazyHolder.INSTANCE;
+	}
+
+	private PMS5003STDriver() {
+		serialPort 	= SerialPort.getCommPort(Objects.requireNonNull((String) config.get( PORT_NAME )));
+
+		config.put( BAUDRATE, 9600 );
+		config.put( DATABITS, 8 );
+		config.put( STOPBITS, SerialPort.ONE_STOP_BIT );
+		config.put( PARITYBITS, SerialPort.NO_PARITY );
+	}
+
+	public boolean open() {
 		if (isConnected()) {
 			return true;
 		}
 
-		measurementBytesQueue = new ConcurrentLinkedDeque<>();
+		try {
+			log.info("Initializing serial port.");
 
-		serial = SerialFactory.createInstance();
-
-		serial.setBufferingDataReceived(false);
-
-		SerialConfig config = new SerialConfig();
-
-		config.device( MY_SERIAL_DEVICE )
-			.baud(Baud._9600)
-			.dataBits(DataBits._8)
-			.parity(Parity.NONE)
-			.stopBits(StopBits._1)
-			.flowControl(FlowControl.NONE);
-
-		listener = event -> {
-			try {
-				if (event.length() > 0) {
-					byte[] bytes = event.getBytes();
-
-					if (bytes.length == PACKET_SIZE)
-						measurementBytesQueue.add(bytes);
-					else
-						log.debug("Bytes received: {}", convertToHexString(bytes));
-				}
-			} catch (IOException e) {
-				log.error("Failed to read bytes from event. {}", e.getMessage());
+			if (!serialPort.openPort()) {
+				throw new Exception("Failed to initializing serial port.");
 			}
-		};
 
-		serial.addListener(listener);
+			serialPort.setBaudRate((int) config.get( BAUDRATE ));
+			serialPort.setNumDataBits((int) config.get( DATABITS ));
+			serialPort.setNumStopBits((int) config.get( STOPBITS ));
+			serialPort.setParity((int) config.get( PARITYBITS ));
+			serialPort.setComPortTimeouts(
+				SerialPort.LISTENING_EVENT_DATA_WRITTEN, 
+				(int)config.get( TIMEOUT ), 
+				(int)config.get( TIMEOUT )
+			);
 
-		try {
-			serial.open(config);
+			measurementBytesQueue = new ConcurrentLinkedDeque<>();
+			serialPort.addDataListener(new SerialPortDataListener() {
+				@Override
+				public int getListeningEvents() {
+					return SerialPort.LISTENING_EVENT_DATA_RECEIVED;
+				}
 
-			log.debug("Opened port.");
+				@Override 
+				public void serialEvent(SerialPortEvent event) {
+					try {
+						byte[] bytes = event.getReceivedData();
 
-		} catch (IOException e) {
-			log.error("Failed to open port. {}", e.getMessage());
+						if (bytes.length == PACKET_SIZE) {
+							measurementBytesQueue.add(bytes);
+
+							PMS5003STMeasurement data 	= genMeasurementResultFromLastQueue();
+							log.info("\n{}", data.toString());
+						} else {
+							log.debug("Bytes received: {}", convertToHexString(bytes));
+						}
+
+					} catch (Exception e) {
+						log.error("Failed to read bytes from event. {}", e.getMessage());
+					}
+				}
+			});
+			
+			config.put(PORT_STATE, true);
+
+			log.info("Serial port initialized with {}.", config.toString());
+			
+		} catch (Exception e) {
+			log.error( e.getMessage() );
+
+			return false;
 		}
 
-		return isConnected();
+		return true;
 	}
 
-	public boolean disconnect() {
-		if (!isConnected())
-			return true;
-
+	@Override
+	public void close() {
 		try {
-			serial.removeListener(listener);
+			if (serialPort.isOpen()) {
+				log.info("Trying to close serial port{}.", config.get( PORT_NAME ));
 
-			serial.close();
+				measurementBytesQueue.clear();
+				if (!serialPort.closePort()) {
+					throw new Exception("Failed to close serial port");
+				}
 
-			SerialFactory.shutdown();
+				log.info("Serial port{} closed.", config.get( PORT_NAME ));
 
-			measurementBytesQueue.clear();
+			} else {
+				log.info("Serial port{} already closed.", config.get( PORT_NAME ));
+			}
 
-			log.debug("Closed port.");
-
-		} catch (IOException e) {
-			log.error("Failed to close port. {}", e.getMessage());
+		} catch (Exception e) {
+			log.error( e.getMessage() );
 		}
-
-		return !isConnected();
 	}
 
-	public boolean activate() {
-		if (!connect()) {
+	public boolean setWakeUp() {
+		if (!open()) {
 			log.error("Can't activate, port not open.");
 			return false;
 		}
@@ -130,8 +177,8 @@ public class PMS5003STDriver {
 		return true;
 	}
 
-	public boolean deactivate() {
-		if (!connect()) {
+	public boolean setSleep() {
+		if (!open()) {
 			log.error("Can't deactivate, port not open.");
 			return false;
 		}
@@ -148,8 +195,16 @@ public class PMS5003STDriver {
 		return true;
 	}
 
-	public boolean changeMode(String mode) {
-		if (!connect()) {
+	public boolean setActiveMode() {
+		return changeMode( ACTIVE_MODE );
+	}
+
+	public boolean setPassiveMode() {
+		return changeMode( PASSIVE_MODE );
+	}
+
+	private boolean changeMode(String mode) {
+		if (!open()) {
 			log.error("Can't change mode, port not open.");
 			return false;
 		}
@@ -167,8 +222,23 @@ public class PMS5003STDriver {
 		return true;
 	}
 
-	public PMS5003STMeasurementResult measureOnPassive() {
-		if (!connect()) {
+	public boolean sendMeasureCmdOnPassive() {
+		if (!open()) {
+			log.error("Can't measure, port not open.");
+			return false;
+		}
+
+		if (!write( MEASURE_CMD_BYTES )) {
+			log.error("Failed to send measure on passive command.");
+			return false;
+		}
+
+		log.debug("Measuring.");
+		return true;
+	}
+
+	public PMS5003STMeasurement measureOnPassive() {
+		if (!open()) {
 			log.error("Can't measure, port not open.");
 			return null;
 		}
@@ -188,8 +258,8 @@ public class PMS5003STDriver {
 		return genMeasurementResultFromLastQueue();
 	}
 
-	public PMS5003STMeasurementResult measure() {
-		if (!connect()) {
+	public PMS5003STMeasurement measure() {
+		if (!open()) {
 			log.error("Can't measure, port not open.");
 			return null;
 		}
@@ -204,10 +274,10 @@ public class PMS5003STDriver {
 		return genMeasurementResultFromLastQueue();
 	}
 
-	private PMS5003STMeasurementResult genMeasurementResultFromLastQueue() {
+	private PMS5003STMeasurement genMeasurementResultFromLastQueue() {
 		byte[] bytes = measurementBytesQueue.pollLast();
 
-		PMS5003STMeasurementResult measurement = new PMS5003STMeasurementResult();
+		PMS5003STMeasurement measurement = new PMS5003STMeasurement();
 
 		measurement.setTime(Instant.now());
 
@@ -236,25 +306,58 @@ public class PMS5003STDriver {
 	}
 
 	public boolean isConnected() {
-		return (serial != null && serial.isOpen());
+		return ( (boolean)config.get(PORT_STATE) && serialPort.isOpen());
 	}
 
 	private int convertBytesToValue(byte[] bytes, int index) {
 		return (Byte.toUnsignedInt(bytes[index]) << 8) + Byte.toUnsignedInt(bytes[index + 1]);
 	}
 
-	private boolean write(byte[] bytes) {
+	private boolean write(byte[] buffer) {
 		try {
-			serial.write(bytes);
+			int length 	= serialPort.bytesAvailable();
+			if (length > 0) {
+				byte[] unread 	= new byte[length];
+				serialPort.readBytes( unread, length );
+				log.info("Deleted unread buffer(length: {}).", length);
+			}
 
-			return true;
+			dump( buffer, "PMS5003ST Command Write: " );
 
-		} catch (IOException e) {
-			log.error("Failed to write bytes. {}", e.getMessage());
+			int ret 	= serialPort.writeBytes( buffer, buffer.length );
+			if (ret == -1) {
+				throw new Exception("Failed to write bytes.");
+			}
+
+		} catch (Exception e) {
+			log.error(e.getMessage());
+
+			return false;
 		}
 
-		return false;
+		return true;
 	}
+
+	/*
+	private byte[] read(int size) {
+		byte[] buffer 	= new byte[size];
+
+		try {
+			int ret = serialPort.readBytes( buffer, size );
+
+			if (ret == -1) {
+				throw new Exception("Failed to read bytes.");
+			}
+
+			dump( buffer, "PMS5003ST Command  Read: " );
+			
+		} catch (Exception e) {
+			log.error( e.getMessage() );
+		}
+
+		return buffer;
+	}
+	*/
 
 	private String convertToHexString(byte[] bytes) {
 		StringBuilder builder = new StringBuilder(bytes.length * 2);
@@ -276,5 +379,8 @@ public class PMS5003STDriver {
         }
     }
 
+	private static class LazyHolder {
+		private static final PMS5003STDriver INSTANCE 	= new PMS5003STDriver();
+	}
 }
 
