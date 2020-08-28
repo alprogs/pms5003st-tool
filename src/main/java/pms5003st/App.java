@@ -11,17 +11,27 @@ public class App {
 		log.info("START");
 
 		try (PMS5003STDriver driver = PMS5003STDriver.getInstance("/dev/ttyUSB0")) {
+			// connect to PMS5003ST
 			driver.open();
 				
-			driver.setPassiveMode();
+			// change mode to passive 
+			if (!driver.setPassiveMode()) {
+				log.error("Failed to set passive mode.");
+			}
 
 			while(true) {
+				if (!driver.sendMeasureCmdOnPassive()) {
+					log.error("Failed to send measure command on passive.");
+				}
+
+				Thread.sleep( 10 * 1000 );
 			}
 
 		} catch (Exception e) {
 			log.error( e.toString() );
 		}
-
+	
+		/*
 		// connect to PMS5003ST
 		if (!driver.connect()) {
 			log.error("connect failed.");
@@ -40,6 +50,7 @@ public class App {
 
 		// print measurement result
 		log.info("{}{}", "\n", result.toString());	
+		*/
 	}
 
     public static void main(String[] args) {
