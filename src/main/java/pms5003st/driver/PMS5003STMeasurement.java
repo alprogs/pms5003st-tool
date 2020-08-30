@@ -29,6 +29,7 @@ public class PMS5003STMeasurement {
 	public String toString() {
 		StringBuffer sb 	= new StringBuffer();
 
+		sb.append("\n");
 		sb.append("PMS5003ST Measurement Result ==============").append("\n");
 		sb.append("PM  1.0(CF1)  : ").append(pm1_0_cf1).append("\n");
 		sb.append("PM  2.5(CF1)  : ").append(pm2_5_cf1).append("\n");
@@ -42,7 +43,7 @@ public class PMS5003STMeasurement {
 		sb.append("PM  2.5(COUNT): ").append(pm2_5_count).append("\n");
 		sb.append("PM  5.0(COUNT): ").append(pm5_0_count).append("\n");
 		sb.append("PM 10.0(COUNT): ").append(pm10_0_count).append("\n");
-		sb.append("FORMALDEHYDE  : ").append(String.format("%.04f", formaldehyde/1000)).append("\n");
+		sb.append("FORMALDEHYDE  : ").append(String.format("%.3f", formaldehyde/1000)).append("\n");
 		sb.append("TEMPERATURE   : ").append(temperature/10).append("\n");
 		sb.append("HUMIDITY      : ").append(humidity/10).append("\n");
 		sb.append("===========================================").append("\n");

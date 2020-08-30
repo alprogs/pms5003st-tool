@@ -7,64 +7,44 @@ import pms5003st.driver.PMS5003STMeasurement;
 @Slf4j
 public class App {
 
-	public void doProcess() {
+	private void doProcess(String serialDevice, String sensorMode) {
 		log.info("START");
 
-		try (PMS5003STDriver driver = PMS5003STDriver.getInstance("/dev/ttyUSB0")) {
+		try (PMS5003STDriver driver = PMS5003STDriver.getInstance( serialDevice )) {
 			// connect to PMS5003ST
 			driver.open();
-				
-			// change mode to passive 
-			if (!driver.setPassiveMode()) {
-				log.error("Failed to set passive mode.");
-			}
 
-			int i=0;
+			// set sensor mode
+			driver.setSensorMode( sensorMode );
+
 			while(true) {
 
-				log.info("TICK -- {}", i++);
-
-				PMS5003STMeasurement data 	= driver.measureOnPassive();
-				if (data == null) {
-					log.error("Received data is empty.");
+				// get measure data
+				PMS5003STMeasurement data 	= driver.measure( sensorMode );
+				if (data != null) {
+					log.info( data.toString() );
 				}
 
-				log.info( data.toString() );
-
-				Thread.sleep( 10 * 1000 );
+				// interval
+				Thread.sleep( 1 * 1000 );
 			}
 
 		} catch (Exception e) {
 			log.error( e.toString() );
 		}
+
 	}
 
     public static void main(String[] args) {
 		App app 	= new App();
-		app.doProcess();
+
+		/*
+		 * PARAMETER1: serial device
+		 * PARAMETER2: set sensor mode
+		 *             (PMS5003STDriver.ACTIVE_MODE OR PMS5003STMeasurement.PASSIVE_MODE)
+		 */
+		//app.doProcess("/dev/ttyUSB0", PMS5003STDriver.ACTIVE_MODE);
+		app.doProcess("/dev/ttyUSB0", PMS5003STDriver.PASSIVE_MODE);
     }
 }
-
-/*
-public static void main(String[] args) {
-	PMS7003Driver driver = new PMS7003Driver();
-
-	PMS7003MeasureTask task = new PMS7003MeasureTask(
-			driver,
-			Executors.newSingleThreadScheduledExecutor());
-
-	ScheduledFuture<?> future = Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(
-			task, 0L, Duration.ofMinutes(5L).toMillis(), TimeUnit.MILLISECONDS);
-
-	Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-		if (future != null && !future.isDone())
-			future.cancel(true);
-
-		driver.disconnect();
-	}));
-}
-*/
-
-
-
 
