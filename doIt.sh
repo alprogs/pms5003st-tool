@@ -1,2 +1,2 @@
-#gradle run --warning-mode all
 gradle run
+#gradle run --args="-ext.tool"

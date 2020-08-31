@@ -3,10 +3,8 @@ package pms5003st.driver;
 import java.time.Instant;
 
 import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
 
 @Data
-@Slf4j
 public class PMS5003STMeasurement {
 	private Instant time;
 
@@ -47,6 +45,19 @@ public class PMS5003STMeasurement {
 		sb.append("TEMPERATURE   : ").append(temperature/10).append("\n");
 		sb.append("HUMIDITY      : ").append(humidity/10).append("\n");
 		sb.append("===========================================").append("\n");
+
+		return sb.toString();
+	}
+
+	public String toStringExtToolFormat() {
+		StringBuffer sb 	= new StringBuffer();
+
+		sb.append(pm1_0_atmo).append(",");
+		sb.append(pm2_5_atmo).append(",");
+		sb.append(pm10_0_atmo).append(",");
+		sb.append(String.format("%.3f", formaldehyde/1000)).append(",");
+		sb.append(temperature/10).append(",");
+		sb.append(humidity/10);
 
 		return sb.toString();
 	}

@@ -1,20 +1,19 @@
 package pms5003st.driver;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
+import ch.qos.logback.classic.Logger;
 import com.fazecast.jSerialComm.SerialPort;
-import com.fazecast.jSerialComm.SerialPortDataListener;
 import com.fazecast.jSerialComm.SerialPortEvent;
 import com.fazecast.jSerialComm.SerialPortPacketListener;
+import org.slf4j.LoggerFactory;
 
-import lombok.extern.slf4j.Slf4j;
-
-@Slf4j
 public class PMS5003STDriver implements AutoCloseable {
+	
+	private static final Logger log 	= (Logger) LoggerFactory.getLogger( PMS5003STDriver.class );
 
 	// Constants --------
 	private static final String PORT_NAME 	= "PORT_NAME";	
