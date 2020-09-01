@@ -40,22 +40,21 @@ public class App {
 			// set sensor mode
 			driver.setSensorMode( sensorMode );
 
-			while(true) {
-
-				// get measure data
-				PMS5003STMeasurement data 	= driver.measure( sensorMode );
-				if (data != null) {
-					if (!isExternalToolMode) {
+			if (!isExternalToolMode) {
+				while(true) {
+					// get measure data
+					PMS5003STMeasurement data 	= driver.measure( sensorMode );
+					if (data != null) {
 						log.info( data.toString() );
-
-						// interval
-						Thread.sleep( 1 * 1000 );
-
-					} else {
-						System.out.println( data.toStringExtToolFormat() );
-						break;
 					}
+
+					// interval
+					Thread.sleep( 1 * 1000 );
 				}
+
+			} else {
+				PMS5003STMeasurement data 	= driver.measure( sensorMode );
+				System.out.println( data.toStringExtToolFormat() );
 			}
 
 		} catch (Exception e) {

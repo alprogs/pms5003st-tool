@@ -28,17 +28,17 @@ dependencies {
     testImplementation 'junit:junit:4.13'
 
 	// jSerialComm
-	implementation 'com.fazecast:jSerialComm:2.6.2'
+	compile 'com.fazecast:jSerialComm:2.6.2'
 
 	// lombok 
 	compileOnly 'org.projectlombok:lombok:1.18.12'
 	annotationProcessor 'org.projectlombok:lombok:1.18.12'
 	
 	// slf4j
-	implementation 'org.slf4j:slf4j-api:1.7.30'
+	compile 'org.slf4j:slf4j-api:1.7.30'
 
-	implementation 'ch.qos.logback:logback-core:1.1.2'
-	implementation 'ch.qos.logback:logback-classic:1.1.2'
+	compile 'ch.qos.logback:logback-core:1.1.2'
+	compile 'ch.qos.logback:logback-classic:1.1.2'
 }
 
 application {

@@ -210,6 +210,11 @@ public class PMS5003STDriver implements AutoCloseable {
 				return false;
 			}
 
+			if (!setSleep()) {
+				log.error("Failed to wake up sensor.");
+				return false;
+			}
+
 		} else {
 			// change mode to active
 			if (!setActiveMode()) {
@@ -362,6 +367,20 @@ public class PMS5003STDriver implements AutoCloseable {
 
 	private boolean write(byte[] buffer) {
 		try {
+			while ( true ) {
+				int availableBytesLength 	= serialPort.bytesAvailable();
+
+				if (availableBytesLength >= PACKET_SIZE) {
+					byte[] unread = new byte[ availableBytesLength ];
+					serialPort.readBytes(unread, availableBytesLength);
+					//log.("deleted unread buffer length: {}", availableBytesLength);
+
+					break;
+				}
+
+				Thread.sleep( 100 );
+			}
+
 			dump( buffer, "PMS5003ST Command Write: " );
 
 			int ret 	= serialPort.writeBytes( buffer, buffer.length );
